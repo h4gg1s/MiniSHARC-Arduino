@@ -16,12 +16,12 @@ public:
 	void waitForMiniSHARCToInitialize();
 	void setConfig(byte config);
 	int getConfig();
-	int getAttenuation();
-	void increaseAttenuation();
-	void decreaseAttenuation();
-	void increaseAttenuation(int steps);
-	void decreaseAttenuation(int steps);
-	void setAttenuation(byte targetVolume);
+	int getVolume();
+	void volumeUp();
+	void volumeDown();
+	void volumeUp(int steps);
+	void volumeDown(int steps);
+	void setVolume(byte targetVolume);
 	void resetToDefaults();
 	void printStatus();
 	void setIsCallbackRegistered(bool value);
@@ -33,10 +33,10 @@ public:
 	void muteOn();
 	void muteOff();
 	int getVolumePercentage();
-	int getAttenuationPercentage();
+	void refreshVolume();
 
 protected:
-	byte _currentAttenuation;
+	byte _currentVolume;
 	byte _currentConfig;
 	byte _state[6];
 	bool _isCallbackRegistered;

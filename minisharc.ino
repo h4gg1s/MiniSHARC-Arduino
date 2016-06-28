@@ -7,6 +7,11 @@
 #include <Wire.h>
 #include "minisharc.h"
 
+#define MAX(x,y) ( (x > y) ? x : y)
+#define MIN(x,y) ( (x < y) ? x : y)
+#define UP 1
+#define DOWN -1
+
 /*****************************************************************
  * This is the MiniSHARC class. Do NOT instantiate this.
  * You automatically get an instance of this Class called "Sharc".
@@ -62,64 +67,68 @@ void MiniSHARC::waitForMiniSHARCToInitialize() {
 }
 
 void MiniSHARC::printStatus() {
-	serprintf("Attenuation: %u  //  Input: %u  //  State: %02x-%02x-%02x-%02x-%02x-%02x", getAttenuation(), getConfig(), _state[0]&0xff, _state[1]&0xff, _state[2]&0xff, _state[3]&0xff, _state[4]&0xff, _state[5&0xff]);
+	serprintf("Volume: %u  //  Input: %u  //  State: %02x-%02x-%02x-%02x-%02x-%02x", getVolume(), getConfig(), _state[0]&0xff, _state[1]&0xff, _state[2]&0xff, _state[3]&0xff, _state[4]&0xff, _state[5&0xff]);
 }
 
-void MiniSHARC::increaseAttenuation() {
-	if(_currentAttenuation == 255)
+void MiniSHARC::refreshVolume() {
+	Wire.beginTransmission(SHARC_ADDR);
+	Wire.write(2);
+	Wire.write(131);
+	Wire.endTransmission();
+}
+
+void MiniSHARC::volumeUp() {
+	if(_currentVolume == 255)
 		return;
 
 	sendI2CBytes(150, 0);
+	refreshVolume();
 }
 
-void MiniSHARC::decreaseAttenuation() {
-	if(_currentAttenuation == 0)
+void MiniSHARC::volumeDown() {
+	if(_currentVolume == 0)
 		return;
 
 	sendI2CBytes(150, 1);
+	refreshVolume();
 }
 
-void MiniSHARC::increaseAttenuation(int steps) {
+void MiniSHARC::volumeUp(int steps) {
 	for(int i = 0; i < steps; i++) {
-		increaseAttenuation();
+		volumeUp();
+		delay(10);
 	}
 }
 
-void MiniSHARC::decreaseAttenuation(int steps) {
+void MiniSHARC::volumeDown(int steps) {
 	for(int i = 0; i < steps; i++) {
-		decreaseAttenuation();
+		volumeDown();
+		delay(10);
 	}
 }
 
-#define MAX(x,y) ( (x > y) ? x : y)
-#define MIN(x,y) ( (x < y) ? x : y)
-#define UP 1
-#define DOWN -1
+void MiniSHARC::setVolume(byte targetVolume) {
+	if(targetVolume > 255)
+		targetVolume = 255;
 
-void MiniSHARC::setAttenuation(byte targetAttenuation) {
-	if(targetAttenuation > 255)
-		targetAttenuation = 255;
+	if(targetVolume < 0)
+		targetVolume = 0;
 
-	if(targetAttenuation < 0)
-		targetAttenuation = 0;
-
-	int diff = MAX(targetAttenuation, getAttenuation()) - MIN(targetAttenuation, getAttenuation());
+	int diff = MAX(targetVolume, getVolume()) - MIN(targetVolume, getVolume());
 	if(diff == 0)
 		return;
 
-	int direction = (getAttenuation() < targetAttenuation) ? UP : DOWN;
+	int direction = (getVolume() < targetVolume) ? UP : DOWN;
 
 	if(direction == UP)
-		increaseAttenuation(diff);
+		volumeUp(diff);
 	else
-		decreaseAttenuation(diff);
+		volumeDown(diff);
 }
 
 void MiniSHARC::setConfig(byte config) {
-	if(config < 1 || config > 4)
+	if(config < 0 || config > 3)
 		return;
-
-	config--; // The caller uses the range 1-4 but MiniSHARC I2C expects 0-3
 		
 	sendI2CBytes(138, config);
 	
@@ -130,11 +139,11 @@ void MiniSHARC::setConfig(byte config) {
 }
 
 int MiniSHARC::getConfig() {
-	return _currentConfig + 1;
+	return _currentConfig;
 }
 
-int MiniSHARC::getAttenuation() {
-	return _currentAttenuation;
+int MiniSHARC::getVolume() {
+	return _currentVolume;
 }
 
 bool MiniSHARC::isCallbackRegistered() {
@@ -148,45 +157,39 @@ void MiniSHARC::setIsCallbackRegistered(bool value) {
 void MiniSHARC::I2CReceiveCallback(int numBytes) {
 	int pos = 0;
 
+	noInterrupts();
 	while (0 < Wire.available()) {
 		byte c = Wire.read();
-		if(numBytes ==6 && pos < 6)
+		if(numBytes == 6 && pos < 6)
 			_state[pos++] = c;
 	}
 
 	// All the responses we're interested in begin with 0x06
 	if(_state[0] == 0x06) {
 		_currentConfig =	_state[POS_CONFIG];
-		_currentAttenuation =	_state[POS_VOLUME];
+		_currentVolume =	_state[POS_VOLUME];
 		_muted =			_state[POS_MUTE];
-		//Sharc.printStatus();
 	}
+	interrupts();
+	//Sharc.printStatus();
 }
 
-/*
-	I don't know if this will work for you. The codes for mute *might*
-	have something to do with the IR remote codes that the MiniSHARC
-	is programmed for; more research is needed here.
-*/
 void MiniSHARC::toggleMute() {
+	char cmd1[] = { 9, 149, 135, 1, 0, 255, 2, 253, 246 };
+	char cmd2[] = { 5, 149, 131, 1, 0 };
+
 	Wire.beginTransmission(SHARC_ADDR);
-	Wire.write(9);
-	Wire.write(149);
-	Wire.write(135);
-	Wire.write(1);
-	Wire.write(0);
-	Wire.write(255);
-	Wire.write(2);
-	Wire.write(253);
-	Wire.write(246);
+	
+	for(int i = 0; i < 9; i++)
+		Wire.write(cmd1[i]);
+	
 	Wire.endTransmission();
 	delay(50);
 	Wire.beginTransmission(SHARC_ADDR);
-	Wire.write(5);
-	Wire.write(149);
-	Wire.write(131);
-	Wire.write(1);
-	Wire.write(0);
+	
+	for(int i = 0; i < 5; i++)
+		Wire.write(cmd2[i]);
+
 	Wire.endTransmission();
 	delay(50);
 }
@@ -205,15 +208,11 @@ void MiniSHARC::muteOff() {
 		toggleMute();
 }
 
-int MiniSHARC::getAttenuationPercentage() {
-	int v = (getAttenuation() * 100) / 255;
-	
-	return v;
-}
-
 int MiniSHARC::getVolumePercentage() {
-	int v = (getAttenuation() * 100) / 255;
-	
+	int v = (getVolume() * 100) / 255;
+	if(v == 100)
+		v--;
+
 	return 99 - v;
 }
 
