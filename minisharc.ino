@@ -13,9 +13,10 @@
 #define DOWN -1
 
 /*****************************************************************
- * This is the MiniSHARC class. Do NOT instantiate this.
- * You automatically get an instance of this Class called "Sharc".
- * See "loop()", below for more usage.
+ * This is the MiniSHARC class. Do not instantiate this.
+ * You automatically get an instance of the "Sharc" class by 
+ * including "minisharc.h". 
+ * See "MiniSHARC-Arduino.ino" for an example.
  *****************************************************************/
 
 MiniSHARC::MiniSHARC() {
