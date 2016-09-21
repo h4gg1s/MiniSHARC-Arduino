@@ -4,7 +4,7 @@ A library for interfacing an Arduino with the MiniDSP MiniSHARC DSP. It has the 
 * Read current DSP volume
 * Set DSP volume
 * Increase/decrease volume in .5dB steps (or multiples thereof)
-* Mute (this doesn't work because it relies on specific IR codes. We don't yet know the real I2C codes for mute)
+* Mute / unmute (mute takes about 300ms, unmute takes about 2.5 seconds)
 * Read current DSP configuration (1-4)
 * Switch to DSP configuration 1-4
 
