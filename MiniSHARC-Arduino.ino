@@ -35,10 +35,9 @@ void loop() {
 
 	// Get the current attenuation
 	byte currentAttenuation = Sharc.getAttenuation(); // 0 - 255
-	int attenuationPercent = Sharc.getAttenuationPercentage(); // 0 - 100%
 	int volumePercent = Sharc.getVolumePercentage(); // 0 - 255
 	int currentConfig = Sharc.getConfig(); // 1 - 4
-	serprintf("Att: %d  //  Att: %d%%  //  Vol: %d%%  //  Config: %d", currentAttenuation, attenuationPercent, volumePercent, currentConfig);
+	serprintf("Attenuation: %d  //  Vol %%: %d%%  //  Config: %d", currentAttenuation, volumePercent, currentConfig);
 
 	
 	// Toggle mute on and off a few times
@@ -76,28 +75,28 @@ void loop() {
 
 	
 	// Forcibly set the volume to a specific value
-	serprintf("Setting volume to 50");
+	serprintf("Setting attenuation to 50");
 	Sharc.setAttenuation(50);
 	Sharc.printStatus();
 	delay(2000);
 
 	
 	// Forcibly set the volume to a specific value
-	serprintf("Setting volume to 100");
+	serprintf("Setting attenuation to 100");
 	Sharc.setAttenuation(100);
 	Sharc.printStatus();
 	delay(2000);
 
 	
-	// Decrease the volume 10 times in .5dB decrements
-	serprintf("Decreasing volume by 10 0.5dB decrements");
+	// Increase the volume 10 times in .5dB decrements
+	serprintf("Decreasing attenuation by 10 0.5dB decrements");
 	Sharc.decreaseAttenuation(10);
 	Sharc.printStatus();
 	delay(2000);
 
 	
 	// Increase the volume 10 times in .5dB increments
-	serprintf("Increasing volume by 10 0.5dB increments");
+	serprintf("Decreasing volume by 10 0.5dB increments");
 	Sharc.increaseAttenuation(10);
 	Sharc.printStatus();
 

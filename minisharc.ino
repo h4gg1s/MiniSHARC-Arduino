@@ -62,68 +62,73 @@ void MiniSHARC::waitForMiniSHARCToInitialize() {
 		delay(1000);
 		serprintf("Waiting... %d", ++count);
 	}
+
+	_muting = false;
+	_muted = false;
+	_savedAttenuation = 255; // by default we're assuming saved attenuation is fully muted
 	
 	Serial.println("Initialized!");
 }
 
 void MiniSHARC::printStatus() {
-	serprintf("Volume: %u  //  Input: %u  //  State: %02x-%02x-%02x-%02x-%02x-%02x", getVolume(), getConfig(), _state[0]&0xff, _state[1]&0xff, _state[2]&0xff, _state[3]&0xff, _state[4]&0xff, _state[5&0xff]);
+	serprintf("Volume: %u  //  Input: %u  //  State: %02x-%02x-%02x-%02x-%02x-%02x", getAttenuation(), getConfig(), _state[0]&0xff, _state[1]&0xff, _state[2]&0xff, _state[3]&0xff, _state[4]&0xff, _state[5&0xff]);
 }
 
-void MiniSHARC::refreshVolume() {
+// "official" MiniDSP way of pinging the SHARC for a volume/state update
+void MiniSHARC::refreshData() {
 	Wire.beginTransmission(SHARC_ADDR);
 	Wire.write(2);
 	Wire.write(131);
 	Wire.endTransmission();
 }
 
-void MiniSHARC::volumeUp() {
-	if(_currentVolume == 255)
+void MiniSHARC::increaseAttenuation() {
+	if(_currentAttenuation == 255)
 		return;
 
 	sendI2CBytes(150, 0);
-	refreshVolume();
+	refreshData();
 }
 
-void MiniSHARC::volumeDown() {
-	if(_currentVolume == 0)
+void MiniSHARC::decreaseAttenuation() {
+	if(_currentAttenuation == 0)
 		return;
 
 	sendI2CBytes(150, 1);
-	refreshVolume();
+	refreshData();
 }
 
-void MiniSHARC::volumeUp(int steps) {
+void MiniSHARC::increaseAttenuation(int steps) {
 	for(int i = 0; i < steps; i++) {
-		volumeUp();
+		increaseAttenuation();
 		delay(10);
 	}
 }
 
-void MiniSHARC::volumeDown(int steps) {
+void MiniSHARC::decreaseAttenuation(int steps) {
 	for(int i = 0; i < steps; i++) {
-		volumeDown();
+		decreaseAttenuation();
 		delay(10);
 	}
 }
 
-void MiniSHARC::setVolume(byte targetVolume) {
-	if(targetVolume > 255)
-		targetVolume = 255;
+void MiniSHARC::setAttenuation(byte targetAttenuation) {
+	if(targetAttenuation > 255)
+		targetAttenuation = 255;
 
-	if(targetVolume < 0)
-		targetVolume = 0;
+	if(targetAttenuation < 0)
+		targetAttenuation = 0;
 
-	int diff = MAX(targetVolume, getVolume()) - MIN(targetVolume, getVolume());
+	int diff = MAX(targetAttenuation, getAttenuation()) - MIN(targetAttenuation, getAttenuation());
 	if(diff == 0)
 		return;
 
-	int direction = (getVolume() < targetVolume) ? UP : DOWN;
+	int direction = (getAttenuation() < targetAttenuation) ? UP : DOWN;
 
 	if(direction == UP)
-		volumeUp(diff);
+		increaseAttenuation(diff);
 	else
-		volumeDown(diff);
+		decreaseAttenuation(diff);
 }
 
 void MiniSHARC::setConfig(byte config) {
@@ -142,8 +147,12 @@ int MiniSHARC::getConfig() {
 	return _currentConfig;
 }
 
-int MiniSHARC::getVolume() {
-	return _currentVolume;
+int MiniSHARC::getAttenuation() {
+	return _currentAttenuation;
+}
+
+int MiniSHARC::getSavedAttenuation() {
+	return _savedAttenuation;
 }
 
 bool MiniSHARC::isCallbackRegistered() {
@@ -166,15 +175,65 @@ void MiniSHARC::I2CReceiveCallback(int numBytes) {
 
 	// All the responses we're interested in begin with 0x06
 	if(_state[0] == 0x06) {
-		_currentConfig =	_state[POS_CONFIG];
-		_currentVolume =	_state[POS_VOLUME];
-		_muted =			_state[POS_MUTE];
+		_currentConfig =		_state[POS_CONFIG];
+		_currentAttenuation =	_state[POS_ATTENUATION];
+		//_muted =			_state[POS_MUTE];
 	}
+
+	if(_currentAttenuation == 255)
+		_muted = true;
+	else
+		_muted = false;
+
 	interrupts();
 	//Sharc.printStatus();
 }
 
 void MiniSHARC::toggleMute() {
+	int i;
+	unsigned long time;
+
+	if(_muting)
+		return;
+	_muting = true;
+
+	if(_muted == true) {
+		int diff = 255 - _savedAttenuation;
+
+		time = millis();
+		serprintf("Unmuting! Attenuation: %d @ %lu. _savedAttenuation: %d. Diff: %d", _currentAttenuation, time, _savedAttenuation, diff);
+
+		// takes about 2.5 seconds
+		decreaseAttenuation(diff);
+		serprintf("Time of finish: %lu (%lu ms)", millis(), millis() - time);
+		refreshData();
+		delay(50);
+		serprintf("Attenuation is now: %d @ %lu. i = %d. _savedAttenuation = %d", _currentAttenuation, millis(), i, _savedAttenuation);
+		_muted = false;
+	} 
+	// We are about to mute the audio
+	else if(_muted == false) {		
+		_savedAttenuation = _currentAttenuation;
+		time = millis();
+		serprintf("Muting! Attenuation: %d @ %lu. _savedAttenuation: %d", _currentAttenuation, time, _savedAttenuation);
+		// takes about 300ms
+		for(i = _currentAttenuation; i < 255; i++) {
+			sendI2CBytes(150, 0);	
+		}
+		serprintf("Time of finish: %lu (%lu ms)", millis(), millis() - time);
+		refreshData();
+		delay(50);
+		serprintf("Attenuation is now: %d @ %lu", _currentAttenuation, millis());
+		_muted = true;
+	}
+	_muting = false;
+}
+
+/*
+void MiniSHARC::toggleMute() {
+	if(_muting)
+		return;
+
 	char cmd1[] = { 9, 149, 135, 1, 0, 255, 2, 253, 246 };
 	char cmd2[] = { 5, 149, 131, 1, 0 };
 
@@ -193,6 +252,8 @@ void MiniSHARC::toggleMute() {
 	Wire.endTransmission();
 	delay(50);
 }
+*/
+
 
 bool MiniSHARC::isMuted() {
 	return _muted;
@@ -209,7 +270,7 @@ void MiniSHARC::muteOff() {
 }
 
 int MiniSHARC::getVolumePercentage() {
-	int v = (getVolume() * 100) / 255;
+	int v = (getAttenuation() * 100) / 255;
 	if(v == 100)
 		v--;
 
