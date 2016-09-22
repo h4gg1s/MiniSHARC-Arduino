@@ -35,7 +35,7 @@ void loop() {
 
 	// Get the current attenuation
 	byte currentAttenuation = Sharc.getAttenuation(); // 0 - 255
-	int volumePercent = Sharc.getVolumePercentage(); // 0 - 255
+	int volumePercent = Sharc.getVolumePercentage(); // 0 - 100%
 	int currentConfig = Sharc.getConfig(); // 1 - 4
 	serprintf("Attenuation: %d  //  Vol %%: %d%%  //  Config: %d", currentAttenuation, volumePercent, currentConfig);
 
@@ -74,41 +74,41 @@ void loop() {
 	delay(2000);
 
 	
-	// Forcibly set the volume to a specific value
+	// Forcibly set the attenuation to a specific value
 	serprintf("Setting attenuation to 50");
 	Sharc.setAttenuation(50);
 	Sharc.printStatus();
 	delay(2000);
 
 	
-	// Forcibly set the volume to a specific value
+	// Forcibly set the attenuation to a specific value
 	serprintf("Setting attenuation to 100");
 	Sharc.setAttenuation(100);
 	Sharc.printStatus();
 	delay(2000);
 
 	
-	// Increase the volume 10 times in .5dB decrements
-	serprintf("Decreasing attenuation by 10 0.5dB decrements");
+	// Increase the volume 10 times in .5dB increments
+	serprintf("Decreasing attenuation using 10x 0.5dB decrements");
 	Sharc.decreaseAttenuation(10);
 	Sharc.printStatus();
 	delay(2000);
 
 	
-	// Increase the volume 10 times in .5dB increments
-	serprintf("Decreasing volume by 10 0.5dB increments");
+	// Decrease the volume 10 times in .5dB decrements
+	serprintf("Increasing attenuation using 10x 0.5dB increments");
 	Sharc.increaseAttenuation(10);
 	Sharc.printStatus();
 
 	
 	// Change the configuration (in range 1 - 4)
-	serprintf("Changing config to 2");
+	serprintf("Changing MiniSHARC config to 2");
 	Sharc.setConfig(2); 
 	Sharc.printStatus();
 
 	
 	// Change the configuration (in range 1 - 4)
-	serprintf("Changing config to 1");
+	serprintf("Changing MiniSHARC config to 1");
 	Sharc.setConfig(1); 
 
 	delay(2000);
